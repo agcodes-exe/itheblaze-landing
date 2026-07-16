@@ -424,7 +424,7 @@
     <div class="hero-grid">
       <div>
         <div class="eyebrow"><span class="dot"></span> Дизайнер и художник · Москва</div>
-        <h1>Elizabeth — визуальные<br>решения, которые <span class="hl">запоминаются</span></h1>
+        <h1>Itheblaze — визуальные<br>решения, которые <span class="hl">запоминаются</span></h1>
         <p class="hero-sub">Графический дизайн и иллюстрация для брендов и личных проектов. От первого эскиза до готового результата — с вниманием к деталям.</p>
         <div class="hero-actions">
           <a href="#contact" class="btn btn-primary">Оставить заявку</a>
@@ -640,10 +640,11 @@
 
   // форма — заявки прилетают в Telegram-бот (без бэкенда)
   // 1) создай бота через @BotFather в Telegram, получи токен
-  // 2) напиши боту любое сообщение, затем открой https://api.telegram.org/bot<ТОКЕН>/getUpdates и найди свой chat_id
-  // 3) впиши оба значения ниже
+  // 2) каждый получатель пишет боту любое сообщение, потом открой
+  //    https://api.telegram.org/bot<ТОКЕН>/getUpdates и найди chat_id каждого
+  // 3) впиши все chat_id в массив ниже (можно добавлять сколько угодно)
   const TELEGRAM_BOT_TOKEN = '8621903439:AAEqWgIPhwykBUElE96-6My2gToeyL3F23E';
-  const TELEGRAM_CHAT_ID = '6296994365';
+  const TELEGRAM_CHAT_IDS = ['6296994365', '1933296101'];
 
   const form = document.getElementById('leadForm');
   const success = document.getElementById('formSuccess');
@@ -704,19 +705,23 @@
       '💬 Комментарий: ' + (data.get('comment') || '—');
 
     try{
-      const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: text })
-      });
-      const result = await res.json();
+      const results = await Promise.allSettled(
+        TELEGRAM_CHAT_IDS.map(chatId =>
+          fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: chatId, text: text })
+          }).then(res => res.json())
+        )
+      );
+      const anyOk = results.some(r => r.status === 'fulfilled' && r.value && r.value.ok);
 
-      if (result.ok) {
+      if (anyOk) {
         try{ localStorage.setItem('itheblaze-last-submit', String(Date.now())); }catch(e){}
         form.classList.add('hide');
         success.classList.add('show');
       } else {
-        throw new Error(result.description || 'submit failed');
+        throw new Error('all recipients failed');
       }
     } catch (err) {
       errorMsg.textContent = 'Не получилось отправить. Попробуйте ещё раз или напишите в Telegram.';
